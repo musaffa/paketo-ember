@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+psmgr=/tmp/web-servers-buildpack-wait
+rm -f $psmgr
+mkfifo $psmgr
+
+# Start App Server
+(
+  echo 'buildpack=web-servers at=app-start'
+  ./dist/node_modules/.bin/ember-fastboot dist --serve-assets-from dist --port /tmp/nginx.socket
+  echo 'app' > $psmgr
+) &
+
+FILE="/tmp/app-initialized"
+
+# We block on app-initialized so that when nginx binds to $PORT
+# are app is ready for traffic.
+while [[ ! -f "$FILE" ]]
+do
+  echo 'buildpack=web-servers at=app-initialization'
+  sleep 1
+done
+echo 'buildpack=web-servers at=app-initialized'
+
+# Start nginx
+(
+  # We expect nginx to run in foreground.
+  # We also expect a socket to be at /tmp/nginx.socket.
+  echo 'buildpack=web-servers at=nginx-start'
+  nginx -p /workspace -c /workspace/nginx.conf
+  echo 'nginx' > $psmgr
+) &
+
+# This read will block the process waiting on a msg to be put into the fifo.
+# If any of the processes defined above should exit,
+# a msg will be put into the fifo causing the read operation
+# to un-block. The process putting the msg into the fifo
+# will use it's process name as a msg so that we can print the offending
+# process to stdout.
+read exit_process < $psmgr
+echo "buildpack=web-servers at=exit process=$exit_process"
+exit 1

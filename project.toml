@@ -1,0 +1,18 @@
+[build]
+  exclude = [
+    '*.log',
+    '.git',
+    'dist/',
+    'tmp',
+    'coverage',
+    '_templates',
+    'node_modules/',
+  ]
+
+[[build.env]]
+  name="BP_DISABLE_SBOM"
+  value="true"
+
+[[build.env]]
+  name="BP_NODE_RUN_SCRIPTS"
+  value="build"
